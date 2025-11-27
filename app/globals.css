@@ -1,22 +1,35 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 /* ============================================
    TAILWIND V4 THEME CONFIGURATION
    NO tailwind.config.ts needed!
    ============================================ */
 
 @theme {
-  /* Brand Colors */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+  /* Brand Colors - Neon Cyberpunk Theme */
+  --color-primary-50: #e6fff9;
+  --color-primary-100: #b3ffe9;
+  --color-primary-200: #80ffd9;
+  --color-primary-300: #4dffc9;
+  --color-primary-400: #1affb9;
+  --color-primary-500: #00ff9d;
+  --color-primary-600: #00d480;
+  --color-primary-700: #00a863;
+  --color-primary-800: #007d46;
+  --color-primary-900: #005129;
+
+  --color-accent-50: #ffe6f0;
+  --color-accent-100: #ffb3d4;
+  --color-accent-200: #ff80b8;
+  --color-accent-300: #ff4d9c;
+  --color-accent-400: #ff1a80;
+  --color-accent-500: #ff006e;
+  --color-accent-600: #d40059;
+  --color-accent-700: #a80045;
+  --color-accent-800: #7d0031;
+  --color-accent-900: #52001d;
 
   --color-success-50: #ecfdf5;
   --color-success-100: #d1fae5;
@@ -107,26 +120,26 @@
   @apply px-6 py-3 text-lg;
 }
 
-/* Cards */
+/* Cards - Cyberpunk Glassmorphism */
 .card {
-  @apply bg-white rounded-lg shadow-md p-6;
+  @apply bg-gradient-to-br from-white/5 to-white/[0.02] rounded-lg backdrop-blur-xl border border-white/10 p-6;
 }
 
 .card-hover {
-  @apply bg-white rounded-lg shadow-md p-6;
-  @apply hover:shadow-lg transition-shadow duration-200 cursor-pointer;
+  @apply bg-gradient-to-br from-white/5 to-white/[0.02] rounded-lg backdrop-blur-xl border border-white/10 p-6;
+  @apply hover:border-primary-500/30 hover:shadow-[0_0_20px_rgba(0,255,157,0.1)] transition-all duration-200 cursor-pointer;
 }
 
 .card-border {
-  @apply bg-white rounded-lg border border-gray-200 p-6;
+  @apply bg-gradient-to-br from-white/5 to-white/[0.02] rounded-lg backdrop-blur-xl border border-white/10 p-6;
 }
 
-/* Forms */
+/* Forms - Cyberpunk Theme */
 .input {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-md;
-  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  @apply w-full px-3 py-2 bg-white/5 border border-white/10 rounded-md text-white;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
   @apply placeholder:text-gray-400;
-  @apply disabled:bg-gray-100 disabled:cursor-not-allowed;
+  @apply disabled:bg-white/[0.02] disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 .input-error {
@@ -134,15 +147,15 @@
 }
 
 .label {
-  @apply block text-sm font-medium text-gray-700 mb-1;
+  @apply block text-sm font-medium text-gray-300 mb-1;
 }
 
 .form-error {
-  @apply text-sm text-error-600 mt-1;
+  @apply text-sm text-error-500 mt-1;
 }
 
 .form-help {
-  @apply text-sm text-gray-500 mt-1;
+  @apply text-sm text-gray-400 mt-1;
 }
 
 /* Badges */
@@ -170,22 +183,22 @@
   @apply bg-primary-100 text-primary-800;
 }
 
-/* Tables */
+/* Tables - Cyberpunk Theme */
 .table {
-  @apply w-full divide-y divide-gray-200;
+  @apply w-full divide-y divide-white/10;
 }
 
 .table th {
-  @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
-  @apply bg-gray-50;
+  @apply px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider;
+  @apply bg-white/5;
 }
 
 .table td {
-  @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+  @apply px-6 py-4 whitespace-nowrap text-sm text-gray-300;
 }
 
 .table tr:hover {
-  @apply bg-gray-50;
+  @apply bg-white/5;
 }
 
 /* Alerts */
@@ -266,58 +279,69 @@
 }
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-[#0a0a0f] text-white;
+  background: linear-gradient(135deg, #0a0a0f 0%, #12121a 100%);
+  font-family: var(--font-sora), system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sora), system-ui, sans-serif;
 }
 
 h1 {
-  @apply text-3xl font-bold text-gray-900;
+  @apply text-3xl font-bold text-white;
 }
 
 h2 {
-  @apply text-2xl font-semibold text-gray-900;
+  @apply text-2xl font-semibold text-white;
 }
 
 h3 {
-  @apply text-xl font-semibold text-gray-900;
+  @apply text-xl font-semibold text-white;
 }
 
 h4 {
-  @apply text-lg font-semibold text-gray-900;
+  @apply text-lg font-semibold text-white;
+}
+
+/* JetBrains Mono for terminal-style labels and code */
+.font-mono, .font-jetbrains, code, kbd, samp, pre {
+  font-family: var(--font-mono), 'Courier New', monospace;
 }
 
 p {
-  @apply text-gray-700;
+  @apply text-gray-300;
 }
 
 a {
-  @apply text-primary-600 hover:text-primary-700 transition-colors;
+  @apply text-primary-500 hover:text-primary-400 transition-colors;
 }
 
-/* Scrollbar Styling */
+/* Scrollbar Styling - Cyberpunk Theme */
 ::-webkit-scrollbar {
   @apply w-2 h-2;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100;
+  @apply bg-[#12121a];
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-400 rounded-full;
+  @apply bg-primary-500/30 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-500;
+  @apply bg-primary-500/50;
 }
 
-/* Selection */
+/* Selection - Cyberpunk Theme */
 ::selection {
-  @apply bg-primary-100 text-primary-900;
+  @apply bg-primary-500/30 text-white;
 }
 
-/* Focus visible */
+/* Focus visible - Cyberpunk Theme */
 *:focus-visible {
-  @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+  @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-[#0a0a0f];
 }
 
 /* ============================================
@@ -356,15 +380,146 @@ a {
   }
 }
 
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px currentColor);
+  }
+  50% {
+    filter: drop-shadow(0 0 20px currentColor);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 255, 157, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(0, 255, 157, 0.6);
+  }
+}
+
 .skeleton {
   @apply bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 bg-[length:200%_100%];
   animation: shimmer 1.5s infinite;
 }
+
+.stagger-1 { animation: slideInUp 0.6s ease-out 0.1s backwards; }
+.stagger-2 { animation: slideInUp 0.6s ease-out 0.2s backwards; }
+.stagger-3 { animation: slideInUp 0.6s ease-out 0.3s backwards; }
+.stagger-4 { animation: slideInUp 0.6s ease-out 0.4s backwards; }
+.stagger-5 { animation: slideInUp 0.6s ease-out 0.5s backwards; }
+.stagger-6 { animation: slideInUp 0.6s ease-out 0.6s backwards; }
+.stagger-7 { animation: slideInUp 0.6s ease-out 0.7s backwards; }
+.stagger-8 { animation: slideInUp 0.6s ease-out 0.8s backwards; }
 
 /* Safe area insets for mobile */
 @supports (padding: max(0px)) {
   body {
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* Neon Cyberpunk Theme - Forced Dark Mode */
+  --background: #0a0a0f;
+  --foreground: #ffffff;
+  --card: #12121a;
+  --card-foreground: #ffffff;
+  --popover: #12121a;
+  --popover-foreground: #ffffff;
+  --primary: #00ff9d;  /* Electric Mint */
+  --primary-foreground: #0a0a0f;
+  --secondary: #1f2937;
+  --secondary-foreground: #ffffff;
+  --muted: #1f2937;
+  --muted-foreground: #9ca3af;
+  --accent: #ff006e;  /* Hot Magenta */
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;  /* Red */
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #00ff9d;
+  --chart-1: #00ff9d;
+  --chart-2: #ff006e;
+  --chart-3: #f59e0b;
+  --chart-4: #3b82f6;
+  --chart-5: #8b5cf6;
+  --sidebar: #12121a;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #00ff9d;
+  --sidebar-primary-foreground: #0a0a0f;
+  --sidebar-accent: #ff006e;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #00ff9d;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }

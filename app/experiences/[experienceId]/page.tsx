@@ -77,19 +77,25 @@ export default async function ExperiencePage({
 
   // 6. Render protected experience
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#0a0a0f] p-8">
+      {/* Cyberpunk Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent-500/10 rounded-full blur-[120px]" />
+      </div>
+
+      <div className="relative max-w-4xl mx-auto">
         {/* Header */}
         <div className="card mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">{product.title}</h1>
-              <p className="text-gray-600">Welcome, {authResult.email}</p>
+              <h1 className="text-3xl font-bold mb-2 text-white font-mono">{product.title}</h1>
+              <p className="text-gray-400">Welcome, {authResult.email}</p>
             </div>
             <div className="text-right">
-              <div className="badge badge-success">Active Member</div>
+              <div className="badge badge-success">ACTIVE_MEMBER</div>
               {membership.current_period_end && (
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-sm text-gray-400 mt-2 font-mono">
                   Renews{' '}
                   {new Date(membership.current_period_end).toLocaleDateString()}
                 </p>

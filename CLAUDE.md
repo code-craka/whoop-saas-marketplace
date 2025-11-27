@@ -77,9 +77,20 @@ await webhookQueue.add(data, {
 | Purpose | Path |
 |---------|------|
 | **Auth & Sessions** | `lib/auth.ts` |
+| **Email Utilities** | `lib/email.ts` |
+| **Auth Actions** | `app/actions/auth.ts` |
+| **Profile Actions** | `app/actions/profile.ts` |
 | **Whop SDK** | `lib/whop-sdk/index.ts` |
 | **Security Middleware** | `middleware.ts` |
 | **Tailwind Design System** | `app/globals.css` |
+| **UI Design Guide** | `.claude/skills/ui-design.md` |
+| **Landing Page** | `app/page.tsx` |
+| **Site Header** | `components/site-header.tsx` |
+| **Login/Register** | `app/login/page.tsx`, `app/register/page.tsx` |
+| **Profile Page** | `app/profile/page.tsx` |
+| **Email Verification** | `app/verify-email/page.tsx` |
+| **Google OAuth** | `app/api/auth/google/callback/route.ts` |
+| **Dashboard Selector** | `app/dashboard/page.tsx` |
 | Tenant isolation | `lib/prisma.ts` |
 | Payments | `lib/stripe.ts` |
 | Webhooks | `lib/webhook-queue.ts` |
@@ -149,20 +160,83 @@ const result = await whopSdk.access.checkIfUserHasAccessToExperience({
 ### Authentication Patterns
 ```typescript
 // Password-based auth (lib/auth.ts)
-import { registerUser, loginUser, requireAuth } from '@/lib/auth';
+import { registerUser, loginUser, requireAuth, getCurrentSession } from '@/lib/auth';
 
-// Register
+// Register new user
 const session = await registerUser({ email, password, name });
 
-// Login
+// Login existing user
 const session = await loginUser({ email, password });
 
-// Protect routes
-const user = await requireAuth(); // Redirects if not logged in
+// Get current session (returns null if not logged in)
+const session = await getCurrentSession();
+
+// Protect routes (redirects to /login if not authenticated)
+const user = await requireAuth();
+
+// Server actions (app/actions/auth.ts)
+import { loginAction, registerAction, logoutAction } from '@/app/actions/auth';
+
+// Use in forms
+const result = await loginAction(formData);
+if (result.success) {
+  router.push('/');
+} else {
+  setError(result.error);
+}
+
+// Logout (clears session cookie)
+await logoutAction();
 
 // Whop iframe auth (for B2C experiences)
 import { authenticateWhopIframe } from '@/lib/auth';
 const whopSession = await authenticateWhopIframe(token);
+```
+
+### Email Verification & Password Reset
+```typescript
+// Generate and send verification email (lib/email.ts)
+import { generateVerificationToken, sendVerificationEmail } from '@/lib/email';
+
+const token = await generateVerificationToken(userId);
+await sendVerificationEmail(email, token);
+
+// Verify token
+import { verifyEmailToken } from '@/lib/email';
+const isValid = await verifyEmailToken(token); // Returns true/false
+
+// Send password reset email
+import { sendPasswordResetEmail } from '@/lib/email';
+await sendPasswordResetEmail(email, resetToken);
+```
+
+### Profile Management
+```typescript
+// Update profile (app/actions/profile.ts)
+import { updateProfileAction, changePasswordAction } from '@/app/actions/profile';
+
+// Update name/username
+const result = await updateProfileAction(formData);
+
+// Change password
+const result = await changePasswordAction(formData);
+// Requires current password verification
+```
+
+### OAuth Integration
+```typescript
+// Google OAuth flow
+// 1. User clicks "Login with Google" button
+<Link href={`https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_BASE_URL + '/api/auth/google/callback')}&response_type=code&scope=openid email profile&access_type=offline&prompt=consent`}>
+  Login with Google
+</Link>
+
+// 2. Callback handler processes OAuth response
+// app/api/auth/google/callback/route.ts handles:
+// - Token exchange
+// - User info retrieval
+// - User creation/lookup
+// - Session creation
 ```
 
 ### New API Endpoint
@@ -226,10 +300,22 @@ WHOP_APP_ID="app_..."             # Required for token verification
 WHOP_WEBHOOK_SECRET="whsec_..."   # Required for webhook validation
 
 # JWT Sessions
-JWT_SECRET="your-secure-secret"   # For password-based auth
+JWT_SECRET="your-secure-secret"   # For password-based auth (min 32 chars)
 
 # App Config
 BASE_URL="http://localhost:3000"
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+
+# OAuth Providers
+NEXT_PUBLIC_GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="GOCSPX-..."
+GOOGLE_PROJECT_ID="your-project-id"
+
+# NEXT_PUBLIC_APPLE_CLIENT_ID="your-apple-service-id"  # Optional
+# APPLE_CLIENT_SECRET="your-apple-secret"              # Optional
+
+# Email Service (Resend)
+RESEND_API_KEY="re_..."           # For email verification & password reset
 ```
 
 See `.env.example` for complete list.
@@ -241,10 +327,13 @@ See `.env.example` for complete list.
 **NEVER:**
 - ❌ Floating-point money
 - ❌ Manual JWT parsing (use Whop SDK token verifier)
-- ❌ Queries without `company_id`
+- ❌ Queries without `company_id` (tenant-scoped models)
 - ❌ Sync webhooks
 - ❌ Skip signature verification
 - ❌ Use `request.ip` (Next.js 15 doesn't support it)
+- ❌ Store passwords in plaintext
+- ❌ Skip email verification for sensitive operations
+- ❌ Expose OAuth secrets in client code
 
 **ALWAYS:**
 - ✅ Cents for money
@@ -254,6 +343,12 @@ See `.env.example` for complete list.
 - ✅ Zod validation
 - ✅ Use `request.headers.get('x-forwarded-for')` for IP detection
 - ✅ Verify Whop tokens with official SDK, never manually
+- ✅ Hash passwords with bcrypt (10+ rounds)
+- ✅ HTTP-only secure cookies for sessions
+- ✅ SameSite cookie protection
+- ✅ Server-side validation for all forms
+- ✅ Verify current password before changes
+- ✅ Check uniqueness for email/username
 
 ---
 
@@ -270,13 +365,106 @@ See `.env.example` for complete list.
 - [x] Error boundary and 404 page
 - [x] Quality checks: **0 TypeScript errors, 0 ESLint errors**
 
+### ✅ Phase 6: Authentication & UI (COMPLETED)
+- [x] **UI Design System**
+  - [x] Neon cyberpunk theme (primary: #00ff9d, accent: #ff006e)
+  - [x] Custom fonts (Sora + JetBrains Mono)
+  - [x] CSS animations (slideInUp, glow, float, pulse-glow)
+  - [x] Design guide (`.claude/skills/ui-design.md`)
+
+- [x] **Landing Page** (`app/page.tsx`)
+  - [x] Hero section with animated backgrounds
+  - [x] Features grid (6 cards)
+  - [x] Pricing tiers (3 plans)
+  - [x] CTA section
+  - [x] Footer with links
+
+- [x] **Authentication System**
+  - [x] Login/Register pages (shadcn login-03 block)
+  - [x] Server actions (`app/actions/auth.ts`)
+  - [x] Password hashing (bcrypt, 10 rounds)
+  - [x] JWT sessions (7-day expiry)
+  - [x] HTTP-only secure cookies
+  - [x] Protected route helper (`requireAuth`)
+
+- [x] **OAuth Integration**
+  - [x] Google OAuth (fully activated)
+  - [x] Apple Sign In (placeholder structure)
+  - [x] Token exchange & user creation
+  - [x] Callback handlers
+
+- [x] **Email Verification**
+  - [x] Token generation (nanoid, 24h expiry)
+  - [x] Resend email service integration
+  - [x] Verification page (`/verify-email`)
+  - [x] Resend button on profile
+  - [x] Email verified badge
+  - [x] HTML email templates (cyberpunk theme)
+
+- [x] **Profile Management**
+  - [x] Profile page (`/profile`)
+  - [x] Update name/username
+  - [x] Change password (with current password check)
+  - [x] Email verification banner
+  - [x] Avatar with fallback
+
+- [x] **Navigation**
+  - [x] Dynamic site header (`components/site-header.tsx`)
+  - [x] Logout button with loading state
+  - [x] Auth-based menu items
+  - [x] Glassmorphism design
+
+- [x] **Dashboard**
+  - [x] Company selector (`/dashboard`)
+  - [x] Role badges (Owner/Admin/Member)
+  - [x] Company stats display
+  - [x] Auto-redirect for single company
+  - [x] Empty state with CTA
+
 ### 🎯 Next: Deploy & Production Setup
-- [ ] Configure environment variables
+- [ ] Configure production environment variables
 - [ ] Set up Stripe Connect onboarding
 - [ ] Deploy to Vercel/production
 - [ ] Configure Redis for Bull queues
 - [ ] Set up monitoring & logging
+- [ ] Configure custom domain for Resend emails
+- [ ] Implement password reset flow
+- [ ] Add 2FA/MFA (optional)
+- [ ] Set up activity logging (optional)
 
 ---
 
-**Full docs:** `Whop-saas-implementations-plan.md` | `.claude/skills.md`
+## 🎨 Design System
+
+**Theme:** Neon Cyberpunk
+**Colors:**
+- Primary: `#00ff9d` (Electric Mint)
+- Accent: `#ff006e` (Hot Magenta)
+- Warning: `#f59e0b` (Amber)
+- Error: `#ef4444` (Red)
+- Background: `#0a0a0f` → `#12121a`
+
+**Typography:**
+- Headings: **Sora** (bold, distinctive)
+- Code/Labels: **JetBrains Mono**
+- Terminal-style labels (e.g., `EMAIL_ADDRESS`, `[BUTTON_TEXT]`)
+
+**Animations:**
+- `slideInUp` - Staggered fade-in from bottom
+- `glow` - Pulsing glow effect
+- `float` - Gentle floating motion
+- `pulse-glow` - Button hover glow
+
+**Components:**
+- Glassmorphism navigation
+- Animated gradient backgrounds
+- Grid patterns
+- Glowing borders on hover
+- Terminal-style UI elements
+- Cyberpunk button styles
+
+See `.claude/skills/ui-design.md` for complete guide.
+
+---
+
+**Full docs:** `Whop-saas-implementations-plan.md` | `.claude/skills.md` | `FEATURES.md`

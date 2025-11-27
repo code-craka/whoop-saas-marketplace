@@ -119,12 +119,14 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
  *   prisma.product.findMany()
  *   → SELECT * FROM products WHERE company_id = 'current_company_id'
  *
- * NOTE: Prisma middleware ($use) is deprecated in Prisma 6+
- * TODO: Migrate to Prisma Client Extensions ($extends) for production use
- * For now, tenant isolation must be handled manually in queries
+ * NOTE: Prisma middleware ($use) has been removed in Prisma 7
+ * TODO: CRITICAL - Migrate to Prisma Client Extensions ($extends) for tenant isolation
+ * @see https://www.prisma.io/docs/orm/prisma-client/client-extensions
+ *
+ * TEMPORARY: Using type assertion to allow $use until migration is complete
  */
-// @ts-expect-error - $use middleware is deprecated in Prisma 6+, will migrate to $extends
-prisma.$use?.(async (params: { model?: string; action: string; args: { data?: unknown; where?: unknown } }, next: (params: unknown) => Promise<unknown>) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(prisma as any).$use?.(async (params: { model?: string; action: string; args: { data?: unknown; where?: unknown } }, next: (params: unknown) => Promise<unknown>) => {
   const { model, action } = params;
 
   // Skip if not a tenant-scoped model

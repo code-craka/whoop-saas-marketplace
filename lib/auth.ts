@@ -14,7 +14,7 @@ import { redirect } from 'next/navigation';
 import { verifyWhopToken } from './whop-sdk';
 import prisma from './prisma';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
 // ============================================================================

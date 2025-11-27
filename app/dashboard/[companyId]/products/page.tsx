@@ -35,14 +35,20 @@ export default async function ProductsPage({ params }: ProductsPageProps) {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
+    <div className="min-h-screen bg-[#0a0a0f]">
+      {/* Cyberpunk Background Effects */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent-500/10 rounded-full blur-[120px]" />
+      </div>
+
+      <header className="relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">Products</h1>
+            <h1 className="text-3xl font-bold text-white font-mono">[PRODUCTS]</h1>
             <a
               href={`/dashboard/${companyId}/products/new`}
-              className="btn btn-primary"
+              className="px-6 py-3 bg-primary-500 text-[#0a0a0f] hover:bg-primary-400 transition-colors rounded-md font-medium"
             >
               + Create Product
             </a>
@@ -50,16 +56,16 @@ export default async function ProductsPage({ params }: ProductsPageProps) {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="relative max-w-7xl mx-auto px-4 py-8">
         {products.length === 0 ? (
           <div className="card text-center py-12">
-            <h2 className="text-xl font-semibold mb-2">No products yet</h2>
-            <p className="text-gray-600 mb-6">
+            <h2 className="text-xl font-semibold mb-2 text-white">No products yet</h2>
+            <p className="text-gray-400 mb-6">
               Create your first product to start selling
             </p>
             <a
               href={`/dashboard/${companyId}/products/new`}
-              className="btn btn-primary"
+              className="inline-block px-6 py-3 bg-primary-500 text-[#0a0a0f] hover:bg-primary-400 transition-colors rounded-md font-medium"
             >
               Create Product
             </a>
@@ -67,57 +73,59 @@ export default async function ProductsPage({ params }: ProductsPageProps) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((product) => (
-              <div key={product.id} className="card-hover">
+              <div key={product.id} className="card-hover group">
                 {product.image_url && (
                   <img
                     src={product.image_url}
                     alt={product.title}
-                    className="w-full h-48 object-cover rounded-md mb-4"
+                    className="w-full h-48 object-cover rounded-md mb-4 border border-white/10"
                   />
                 )}
 
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-lg font-semibold">{product.title}</h3>
+                  <h3 className="text-lg font-semibold text-white">{product.title}</h3>
                   <span
                     className={`badge ${
                       product.active ? 'badge-success' : 'badge-gray'
                     }`}
                   >
-                    {product.active ? 'Active' : 'Inactive'}
+                    {product.active ? 'ACTIVE' : 'INACTIVE'}
                   </span>
                 </div>
 
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                <p className="text-gray-400 text-sm mb-4 line-clamp-2">
                   {product.description || 'No description'}
                 </p>
 
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <p className="text-2xl font-bold">
+                    <p className="text-2xl font-bold text-primary-500">
                       ${(Number(product.price_amount) / 100).toFixed(2)}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 font-mono">
                       {product.plan_type === 'one_time'
-                        ? 'One-time'
-                        : product.plan_type}
+                        ? 'ONE-TIME'
+                        : product.plan_type.toUpperCase()}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium">
+                    <p className="text-sm font-medium text-white">
                       {product._count.memberships}
                     </p>
-                    <p className="text-xs text-gray-500">Active members</p>
+                    <p className="text-xs text-gray-500 font-mono">MEMBERS</p>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
                   <a
                     href={`/dashboard/${companyId}/products/${product.id}/edit`}
-                    className="btn btn-secondary btn-sm flex-1"
+                    className="flex-1 px-4 py-2 text-sm border border-white/20 text-white hover:bg-white/5 transition-colors rounded-md font-medium text-center"
                   >
                     Edit
                   </a>
-                  <button className="btn btn-danger btn-sm">Delete</button>
+                  <button className="px-4 py-2 text-sm border border-error-500/30 text-error-500 hover:bg-error-500/10 transition-colors rounded-md font-medium">
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}

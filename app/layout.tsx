@@ -1,8 +1,18 @@
-import { Inter } from 'next/font/google';
+import { Sora, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import type { Metadata } from 'next';
 
-const inter = Inter({ subsets: ['latin'] });
+const sora = Sora({
+  subsets: ['latin'],
+  variable: '--font-sora',
+  display: 'swap',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Whop SaaS Marketplace',
@@ -18,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" className={`${sora.variable} ${jetbrainsMono.variable}`}>
+      <body className={sora.className}>{children}</body>
     </html>
   );
 }

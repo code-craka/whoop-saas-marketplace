@@ -2,13 +2,10 @@
 
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["jsonProtocol", "metrics"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // For migrations
 }
 
 // ============================================================================
@@ -118,6 +115,7 @@ model User {
   // Auth
   password_hash  String?
   email_verified Boolean  @default(false)
+  metadata       Json?    // For email verification tokens and other temporary data
 
   // Timestamps
   created_at DateTime @default(now())
