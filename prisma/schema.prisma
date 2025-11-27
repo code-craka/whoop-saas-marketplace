@@ -1,0 +1,406 @@
+// schema.prisma - Production-grade database design
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["jsonProtocol", "metrics"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // For migrations
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum CompanyType {
+  platform
+  sub_merchant
+}
+
+enum CompanyStatus {
+  active
+  pending_kyc
+  suspended
+  closed
+}
+
+enum PaymentStatus {
+  pending
+  processing
+  succeeded
+  failed
+  refunded
+  cancelled
+}
+
+enum MembershipStatus {
+  active
+  past_due
+  canceled
+  expired
+  trialing
+}
+
+enum WebhookStatus {
+  pending
+  delivered
+  failed
+}
+
+// ============================================================================
+// CORE ENTITIES
+// ============================================================================
+
+model Company {
+  id        String        @id @default(cuid()) @map("company_id")
+  type      CompanyType   @default(sub_merchant)
+  status    CompanyStatus @default(pending_kyc)
+
+  // Hierarchy
+  parent_company_id String?
+  parent_company    Company?  @relation("CompanyHierarchy", fields: [parent_company_id], references: [id], onDelete: Restrict)
+  sub_merchants     Company[] @relation("CompanyHierarchy")
+
+  // Business Details
+  title       String  @db.VarChar(255)
+  email       String  @unique
+  slug        String  @unique
+  logo_url    String?
+  website_url String?
+  description String? @db.Text
+
+  // Stripe Connect
+  stripe_account_id  String?   @unique
+  stripe_onboarded   Boolean   @default(false)
+
+  // Onboarding
+  onboarding_completed       Boolean   @default(false)
+  onboarding_link_expires_at DateTime?
+
+  // Platform Fees
+  platform_fee_percent Decimal @default(5.0) @db.Decimal(5, 2)
+
+  // Payout Settings
+  payout_minimum_amount Decimal @default(50.00) @db.Decimal(10, 2)
+  payout_frequency      String  @default("weekly") // daily, weekly, monthly
+
+  // Metadata
+  metadata   Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  users       CompanyUser[]
+  apps        App[]
+  products    Product[]
+  memberships Membership[]
+  payments    Payment[]
+  webhooks    Webhook[]
+
+  @@index([parent_company_id])
+  @@index([type, status])
+  @@index([stripe_account_id, stripe_onboarded])
+  @@map("companies")
+}
+
+model User {
+  id       String  @id @default(cuid()) @map("user_id")
+  email    String  @unique
+  username String? @unique
+
+  // Profile
+  name       String?
+  avatar_url String?
+
+  // Auth
+  password_hash  String?
+  email_verified Boolean  @default(false)
+
+  // Timestamps
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  companies    CompanyUser[]
+  memberships  Membership[]
+  license_keys LicenseKey[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model CompanyUser {
+  id         String @id @default(cuid())
+  user_id    String
+  company_id String
+  role       String @default("member") // owner, admin, member
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+
+  @@unique([user_id, company_id])
+  @@index([company_id])
+  @@index([user_id, role])
+  @@map("company_users")
+}
+
+// ============================================================================
+// PRODUCTS & MEMBERSHIPS
+// ============================================================================
+
+model Product {
+  id         String @id @default(cuid()) @map("product_id")
+  company_id String
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  // Product Details
+  title       String  @db.VarChar(255)
+  description String? @db.Text
+  image_url   String?
+
+  // Pricing
+  price_amount      Decimal @db.Decimal(10, 2)
+  price_minor_units Int // Cents for Stripe
+  currency          String  @default("USD") @db.VarChar(3)
+
+  // Plan Type
+  plan_type      String @db.VarChar(20) // one_time, monthly, yearly
+  billing_period Int? // Days (30, 365, etc.)
+
+  // Trial
+  trial_days Int? @default(0)
+
+  // Status
+  active Boolean @default(true)
+
+  // Metadata
+  metadata   Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  memberships Membership[]
+  license_keys LicenseKey[]
+
+  @@index([company_id, active])
+  @@index([plan_type])
+  @@map("products")
+}
+
+model Membership {
+  id         String           @id @default(cuid()) @map("membership_id")
+  user_id    String
+  product_id String
+  company_id String
+  status     MembershipStatus @default(active)
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
+
+  // Billing
+  stripe_subscription_id String?   @unique
+  current_period_start   DateTime?
+  current_period_end     DateTime?
+  cancel_at              DateTime?
+  canceled_at            DateTime?
+  trial_end              DateTime?
+
+  // Metadata
+  metadata   Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id, status])
+  @@index([product_id])
+  @@index([company_id])
+  @@index([stripe_subscription_id])
+  @@map("memberships")
+}
+
+model LicenseKey {
+  id         String @id @default(cuid())
+  key        String @unique @db.VarChar(64)
+  user_id    String
+  product_id String
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id])
+
+  // Status
+  active     Boolean   @default(true)
+  expires_at DateTime?
+
+  // Hardware Binding
+  max_activations     Int @default(1)
+  current_activations Int @default(0)
+  reset_count         Int @default(0)
+  last_reset_at       DateTime?
+
+  // Validation
+  metadata           Json? // { hardware_id, ip_address, device_name }
+  last_validated_at  DateTime?
+
+  created_at DateTime @default(now())
+
+  @@index([user_id])
+  @@index([product_id])
+  @@index([key, active])
+  @@map("license_keys")
+}
+
+// ============================================================================
+// PAYMENTS
+// ============================================================================
+
+model Payment {
+  id         String        @id @default(cuid()) @map("payment_id")
+  company_id String
+  user_id    String?
+
+  company Company @relation(fields: [company_id], references: [id])
+
+  // Payment Details
+  amount             Decimal @db.Decimal(10, 2)
+  amount_minor_units Int
+  currency           String  @db.VarChar(3)
+
+  // Status
+  status PaymentStatus @default(pending)
+
+  // Stripe
+  stripe_payment_intent_id String? @unique
+  stripe_charge_id         String?
+
+  // Platform Fee
+  platform_fee_amount       Decimal @db.Decimal(10, 2)
+  platform_fee_minor_units  Int?
+
+  // Metadata
+  metadata          Json?
+  checkout_metadata Json?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([company_id, status])
+  @@index([user_id])
+  @@index([stripe_payment_intent_id])
+  @@index([created_at])
+  @@map("payments")
+}
+
+model CheckoutSession {
+  id                  String  @id // ch_xxxxx
+  checkout_config_id  String?
+  plan_id             String?
+  affiliate_code      String?
+
+  // Session Details
+  metadata   Json
+  expires_at DateTime
+  used       Boolean  @default(false)
+
+  created_at DateTime @default(now())
+
+  @@index([expires_at, used])
+  @@map("checkout_sessions")
+}
+
+// ============================================================================
+// APPS & WEBHOOKS
+// ============================================================================
+
+model App {
+  id         String @id @default(cuid()) @map("app_id")
+  company_id String
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  // App Details
+  name        String  @db.VarChar(255)
+  description String? @db.Text
+  icon_url    String?
+
+  // Hosting
+  base_url        String? // Production URL
+  experience_path String? // /experiences/[experienceId]
+  dashboard_path  String? // /dashboard/[companyId]
+
+  // API Credentials
+  api_key        String @unique @db.VarChar(64)
+  webhook_secret String @db.VarChar(64)
+
+  // Status
+  published     Boolean @default(false)
+  localhost_mode Boolean @default(true)
+
+  // Permissions
+  permissions String[] // ["payments:read", "users:write"]
+
+  // Metadata
+  metadata   Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([company_id])
+  @@index([published])
+  @@map("apps")
+}
+
+model Webhook {
+  id         String @id @default(cuid())
+  company_id String
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  // Webhook Config
+  url         String
+  events      String[] // ["payment.succeeded", "membership.created"]
+  api_version String   @default("v1")
+  secret      String   @db.VarChar(64)
+
+  // Status
+  active Boolean @default(true)
+
+  created_at DateTime @default(now())
+
+  // Relations
+  deliveries WebhookDelivery[]
+
+  @@index([company_id, active])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id         String        @id @default(cuid())
+  webhook_id String
+  webhook    Webhook       @relation(fields: [webhook_id], references: [id], onDelete: Cascade)
+
+  // Event Details
+  event_id   String @unique // Deduplication
+  event_type String @db.VarChar(100)
+  event_data Json
+
+  // Delivery Status
+  status   WebhookStatus @default(pending)
+  attempts Int           @default(0)
+
+  // Response
+  response_status Int?
+  response_body   String? @db.Text
+
+  // Retry
+  next_retry_at DateTime?
+
+  created_at   DateTime  @default(now())
+  delivered_at DateTime?
+
+  @@index([webhook_id, status])
+  @@index([event_type])
+  @@index([status, next_retry_at])
+  @@map("webhook_deliveries")
+}
