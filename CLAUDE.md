@@ -1,53 +1,68 @@
-# CLAUDE.md - Whop SaaS Marketplace Guide
+# CLAUDE.md - Whop SaaS Marketplace
 
-## 🚨 CRITICAL WORKFLOW RULES
+## 🚨 CRITICAL RULES
 
-### Development Commands (NEVER RUN WITHOUT PERMISSION)
-❌ `pnpm dev` | `pnpm build` | `pnpm start` - **ASK USER FIRST**
+**Package Manager:** ✅ ALWAYS use `pnpm` (NOT npm/yarn)
+**Commands:** ❌ NEVER run `pnpm dev|build|start` without permission
+**Types:** ❌ NO `any`/`unknown` ✅ USE explicit types, `Prisma.JsonObject`
+**Tailwind v4:** Configure in `app/globals.css` (no config file needed)
 
-### TypeScript Rules (MANDATORY)
-- ❌ **NO** `any` or `unknown` types
-- ✅ **USE** `Prisma.JsonObject`, `Prisma.JsonValue` for JSON
-- ✅ Explicit types for all parameters/returns
-
-### Tailwind v4
-- ❌ NO `tailwind.config.ts` (not needed)
-- ✅ Configure in `app/globals.css` with `@import` / `@theme`
-
-### Phase Completion Checklist
+**Quality Checklist:**
 ```bash
-# 1. Run quality checks
-pnpm lint && npx tsc --noEmit
-
-# 2. Fix ALL errors (lint + types)
-
-# 3. Commit only after ALL pass
-git add . && git commit -m "feat: [description]" && git push
+pnpm lint && npx tsc --noEmit  # Must pass before commit
 ```
 
 ---
 
-## Project: Whop SaaS Marketplace ($400M Clone)
-**Stack:** Next.js 15 + Prisma + Stripe Connect + Bull/Redis + Whop SDK
+## Stack
+**Next.js 16 + React 19 + Prisma 7 + PostgreSQL + Stripe Connect + Whop SDK**
+
+### Next.js 16 Key Changes
+- ✅ `params`/`searchParams` are `Promise<T>` (must await)
+- ✅ `cookies()`, `headers()`, `draftMode()` are async
+- ✅ Turbopack is default bundler
+- ✅ Bull/Redis removed (incompatible) → sync webhooks with backoff
+
+### Prisma 7 Setup (CRITICAL)
+```typescript
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client"
+  output   = "./generated/client"
+}
+
+// lib/prisma.ts - PostgreSQL Adapter
+import { PrismaClient } from '../prisma/generated/client/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
+
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+export { prisma, Prisma };
+```
+
+**Import Pattern:** All files must import from `lib/prisma.ts` singleton:
+```typescript
+import { prisma, Prisma } from '@/lib/prisma';
+```
 
 ---
 
-## 5 CRITICAL Security Patterns
+## 5 Security Patterns (HIGHEST PRIORITY)
 
-### 1. Multi-Tenant Isolation (HIGHEST PRIORITY)
+### 1. Multi-Tenant Isolation
 ```typescript
-// lib/prisma.ts - Auto-inject company_id
-const TENANT_MODELS = ['Product', 'Membership', 'Payment', 'Webhook', 'App'];
+// Auto-inject company_id on ALL tenant models
 runInTenantContext({ companyId }, async () => {
-  await prisma.product.findMany(); // Auto-filtered by company_id
+  await prisma.product.findMany(); // Auto-filtered
 });
 ```
 
-### 2. Money = Cents (ALWAYS)
+### 2. Money = Cents
 ```typescript
-const priceInCents = 4999; // $49.99 ✅
-const fee = Math.round(priceInCents * 0.027); // ✅
-// NEVER: const price = 49.99; ❌
+const cents = 4999; // $49.99 ✅
+const fee = Math.round(cents * 0.027);
 ```
 
 ### 3. Idempotency Keys
@@ -56,206 +71,65 @@ const key = `checkout_${userId}_${productId}_${nanoid()}`;
 await stripe.checkout.sessions.create(data, { idempotencyKey: key });
 ```
 
-### 4. Webhook HMAC-SHA256
+### 4. Webhook HMAC
 ```typescript
-import { createHmac } from 'crypto';
 const sig = createHmac('sha256', secret).update(payload).digest('hex');
 ```
 
-### 5. Async Webhooks (Bull Queue)
-```typescript
-await webhookQueue.add(data, {
-  attempts: 3,
-  backoff: { type: 'exponential', delay: 5000 } // 5s→25s→125s
-});
-```
+### 5. Tenant Models
+**ALWAYS require `company_id`:** Product, Membership, Payment, Webhook, App, CompanyUser, WebhookDelivery
 
 ---
 
-## Key Files
+## Critical Files
 
 | Purpose | Path |
 |---------|------|
-| **Auth & Sessions** | `lib/auth.ts` |
-| **Email Utilities** | `lib/email.ts` |
-| **Auth Actions** | `app/actions/auth.ts` |
-| **Profile Actions** | `app/actions/profile.ts` |
+| **Prisma Singleton** | `lib/prisma.ts` |
+| **Auth** | `lib/auth.ts`, `app/actions/auth.ts` |
+| **Email** | `lib/email.ts` |
+| **Webhooks** | `lib/webhook-queue.ts` |
 | **Whop SDK** | `lib/whop-sdk/index.ts` |
-| **Security Middleware** | `middleware.ts` |
-| **Tailwind Design System** | `app/globals.css` |
-| **UI Design Guide** | `.claude/skills/ui-design.md` |
-| **Landing Page** | `app/page.tsx` |
-| **Site Header** | `components/site-header.tsx` |
-| **Login/Register** | `app/login/page.tsx`, `app/register/page.tsx` |
-| **Profile Page** | `app/profile/page.tsx` |
-| **Email Verification** | `app/verify-email/page.tsx` |
-| **Google OAuth** | `app/api/auth/google/callback/route.ts` |
-| **Dashboard Selector** | `app/dashboard/page.tsx` |
-| Tenant isolation | `lib/prisma.ts` |
-| Payments | `lib/stripe.ts` |
-| Webhooks | `lib/webhook-queue.ts` |
-| **B2C Experience Page** | `app/experiences/[experienceId]/page.tsx` |
-| **B2B Dashboard** | `app/dashboard/[companyId]/page.tsx` |
-| **License Validation** | `app/api/memberships/[key]/validate_license/route.ts` |
-| Checkout API | `app/api/checkout/create/route.ts` |
-| Stripe webhooks | `app/api/webhooks/stripe/route.ts` |
-| Schema | `prisma/schema.prisma` |
+| **Payments** | `lib/stripe.ts` |
+| **Schema** | `prisma/schema.prisma` |
+| **Design System** | `app/globals.css`, `.claude/skills/ui-design.md` |
 
 ---
 
-## Commands
+## Common Patterns
 
-```bash
-# Database
-pnpm db:push          # Dev schema sync
-pnpm db:migrate       # Create migration
-pnpm db:studio        # GUI
-
-# Quality
-pnpm lint             # ESLint
-npx tsc --noEmit      # Type check
-
-# Worker
-pnpm worker           # Start Bull queue worker
-```
-
----
-
-## Database Schema (13 Models)
-
-**Tenant-scoped (require `company_id`):**
-Product, Membership, Payment, Webhook, App, CompanyUser, WebhookDelivery
-
-**Enums:** CompanyType, CompanyStatus, PaymentStatus, MembershipStatus, WebhookStatus
-
----
-
-## Development Patterns
-
-### Whop SDK Usage
+### Auth
 ```typescript
-import { WhopServerSdk } from '@whop/api';
+// Protect routes
+const user = await requireAuth(); // → redirect if not auth
 
-// Initialize SDK (already done in lib/whop-sdk/index.ts)
-const whopSdk = WhopServerSdk({
-  appApiKey: process.env.WHOP_API_KEY!,
-  appId: process.env.WHOP_APP_ID || '',
-});
+// Session
+const session = await getCurrentSession(); // → null if not auth
 
-// Verify iframe token
-import { verifyWhopToken } from '@/lib/whop-sdk';
-const tokenData = await verifyWhopToken(token); // Returns { userId, appId }
-
-// Get user/company data
-const user = await whopSdk.users.getUser({ userId });
-const company = await whopSdk.companies.getCompany({ companyId });
-
-// Check access
-const result = await whopSdk.access.checkIfUserHasAccessToExperience({
-  experienceId,
-  userId,
-});
-```
-
-### Authentication Patterns
-```typescript
-// Password-based auth (lib/auth.ts)
-import { registerUser, loginUser, requireAuth, getCurrentSession } from '@/lib/auth';
-
-// Register new user
+// Register/Login
 const session = await registerUser({ email, password, name });
-
-// Login existing user
 const session = await loginUser({ email, password });
-
-// Get current session (returns null if not logged in)
-const session = await getCurrentSession();
-
-// Protect routes (redirects to /login if not authenticated)
-const user = await requireAuth();
-
-// Server actions (app/actions/auth.ts)
-import { loginAction, registerAction, logoutAction } from '@/app/actions/auth';
-
-// Use in forms
-const result = await loginAction(formData);
-if (result.success) {
-  router.push('/');
-} else {
-  setError(result.error);
-}
-
-// Logout (clears session cookie)
-await logoutAction();
-
-// Whop iframe auth (for B2C experiences)
-import { authenticateWhopIframe } from '@/lib/auth';
-const whopSession = await authenticateWhopIframe(token);
 ```
 
-### Email Verification & Password Reset
+### Whop SDK
 ```typescript
-// Generate and send verification email (lib/email.ts)
-import { generateVerificationToken, sendVerificationEmail } from '@/lib/email';
+import { verifyWhopToken } from '@/lib/whop-sdk';
+const tokenData = await verifyWhopToken(token);
+
+import { authenticateWhopIframe } from '@/lib/auth';
+const session = await authenticateWhopIframe(token);
+```
+
+### Email Verification
+```typescript
+import { generateVerificationToken, sendVerificationEmail, verifyEmailToken } from '@/lib/email';
 
 const token = await generateVerificationToken(userId);
 await sendVerificationEmail(email, token);
-
-// Verify token
-import { verifyEmailToken } from '@/lib/email';
-const isValid = await verifyEmailToken(token); // Returns true/false
-
-// Send password reset email
-import { sendPasswordResetEmail } from '@/lib/email';
-await sendPasswordResetEmail(email, resetToken);
+const isValid = await verifyEmailToken(token);
 ```
 
-### Profile Management
-```typescript
-// Update profile (app/actions/profile.ts)
-import { updateProfileAction, changePasswordAction } from '@/app/actions/profile';
-
-// Update name/username
-const result = await updateProfileAction(formData);
-
-// Change password
-const result = await changePasswordAction(formData);
-// Requires current password verification
-```
-
-### OAuth Integration
-```typescript
-// Google OAuth flow
-// 1. User clicks "Login with Google" button
-<Link href={`https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_BASE_URL + '/api/auth/google/callback')}&response_type=code&scope=openid email profile&access_type=offline&prompt=consent`}>
-  Login with Google
-</Link>
-
-// 2. Callback handler processes OAuth response
-// app/api/auth/google/callback/route.ts handles:
-// - Token exchange
-// - User info retrieval
-// - User creation/lookup
-// - Session creation
-```
-
-### New API Endpoint
-```typescript
-import { z } from 'zod';
-import { runInTenantContext } from '@/lib/prisma';
-
-const schema = z.object({ name: z.string() });
-
-export async function POST(req: NextRequest) {
-  const body = schema.parse(await req.json());
-  return await runInTenantContext({ companyId }, async () => {
-    // Auto-filtered queries here
-    return NextResponse.json({ success: true });
-  });
-}
-```
-
-### Trigger Webhook
+### Webhooks
 ```typescript
 import { triggerWebhook, WebhookEvents } from '@/lib/webhook-queue';
 
@@ -265,60 +139,131 @@ await triggerWebhook(companyId, WebhookEvents.PAYMENT_SUCCEEDED, {
 });
 ```
 
-### License Key Validation
+### API Routes
 ```typescript
-// Client application validates license
-const response = await fetch(`/api/memberships/${key}/validate_license`, {
-  method: 'POST',
-  body: JSON.stringify({
-    hardware_id: getHardwareId(),
-    device_name: os.hostname(),
-  }),
-});
+import { z } from 'zod';
+import { runInTenantContext } from '@/lib/prisma';
 
-const { valid, product, user, activations } = await response.json();
+const schema = z.object({ name: z.string() });
+
+export async function POST(req: NextRequest) {
+  const body = schema.parse(await req.json());
+  return await runInTenantContext({ companyId }, async () => {
+    // Auto-filtered queries
+    return NextResponse.json({ success: true });
+  });
+}
 ```
 
 ---
 
-## Environment Variables (Required)
+## CRUD API Endpoints
+
+### Products API
+```typescript
+// List: GET /api/products?company_id={id}&active=true&limit=50&offset=0
+// Create: POST /api/products { company_id, title, price_amount|price_minor_units, plan_type }
+// Get: GET /api/products/{id}
+// Update: PUT /api/products/{id} { title?, price_amount?, active? }
+// Delete: DELETE /api/products/{id} // Soft delete (active=false)
+```
+
+### Companies API
+```typescript
+// List: GET /api/companies?role=owner&type=sub_merchant&limit=50
+// Create: POST /api/companies { title, email, type } // Auto-generates slug
+// Get: GET /api/companies/{id}
+// Update: PUT /api/companies/{id} { title?, platform_fee_percent?, status? }
+```
+
+### Memberships API
+```typescript
+// List: GET /api/memberships?company_id={id}&status=active&product_id={id}
+// Get: GET /api/memberships/{id}
+// Update: PUT /api/memberships/{id} { status?, cancel_at?, metadata? }
+// Note: Created via checkout flow, not POST endpoint
+```
+
+### Webhooks API
+```typescript
+// List: GET /api/webhooks?company_id={id}&active=true
+// Create: POST /api/webhooks { company_id, url, events[] } // Returns secret
+// Get: GET /api/webhooks/{id}
+// Update: PUT /api/webhooks/{id} { url?, events?, active? }
+// Delete: DELETE /api/webhooks/{id}
+
+// Events: payment.succeeded, payment.failed, membership.created/updated/canceled,
+//         product.created/updated/deleted
+```
+
+**Security:** All endpoints require auth, enforce tenant isolation, validate permissions (owner/admin/member)
+
+---
+
+## TypeScript SDK
+
+**Quick Usage:**
+```typescript
+import { WhopSaaSClient } from '@/lib/sdk/client';
+
+const client = new WhopSaaSClient();
+const { products } = await client.products.list({ company_id: 'biz_123' });
+```
+
+**Full SDK:** `lib/sdk/client.ts` | **Docs:** `lib/sdk/README.md` | **Generate:** `./scripts/generate-sdk.sh`
+
+---
+
+## Documentation Access
+
+- **Swagger UI:** http://localhost:3000/api/docs (interactive)
+- **OpenAPI Spec:** http://localhost:3000/api/openapi (download)
+- **API Guide:** `/API_DOCUMENTATION.md` (full reference)
+- **Team Guide:** `/TEAM_GUIDE.md` (sharing templates)
+
+---
+
+## Environment Variables
 
 ```bash
-# Database
+# Database (PostgreSQL)
 DATABASE_URL="postgresql://..."
-
-# Redis (for Bull queue workers)
-REDIS_URL="redis://..."
 
 # Stripe Connect
 STRIPE_SECRET_KEY="sk_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 
-# Whop SDK Integration
-WHOP_API_KEY="apik_..."           # Required for SDK
-WHOP_APP_ID="app_..."             # Required for token verification
-WHOP_WEBHOOK_SECRET="whsec_..."   # Required for webhook validation
+# Whop SDK
+WHOP_API_KEY="apik_..."
+WHOP_APP_ID="app_..."
+WHOP_WEBHOOK_SECRET="whsec_..."
 
-# JWT Sessions
-JWT_SECRET="your-secure-secret"   # For password-based auth (min 32 chars)
+# Auth
+JWT_SECRET="min-32-chars"
 
-# App Config
+# OAuth
+NEXT_PUBLIC_GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+GOOGLE_PROJECT_ID="..."
+
+# Email (Resend)
+RESEND_API_KEY="re_..."
+
+# App
 BASE_URL="http://localhost:3000"
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
-
-# OAuth Providers
-NEXT_PUBLIC_GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="GOCSPX-..."
-GOOGLE_PROJECT_ID="your-project-id"
-
-# NEXT_PUBLIC_APPLE_CLIENT_ID="your-apple-service-id"  # Optional
-# APPLE_CLIENT_SECRET="your-apple-secret"              # Optional
-
-# Email Service (Resend)
-RESEND_API_KEY="re_..."           # For email verification & password reset
 ```
 
-See `.env.example` for complete list.
+---
+
+## Database Commands
+
+```bash
+pnpm db:push      # Dev schema sync
+pnpm db:migrate   # Create migration
+pnpm db:studio    # GUI
+pnpm prisma generate  # Regenerate client
+```
 
 ---
 
@@ -326,145 +271,56 @@ See `.env.example` for complete list.
 
 **NEVER:**
 - ❌ Floating-point money
-- ❌ Manual JWT parsing (use Whop SDK token verifier)
-- ❌ Queries without `company_id` (tenant-scoped models)
-- ❌ Sync webhooks
-- ❌ Skip signature verification
-- ❌ Use `request.ip` (Next.js 15 doesn't support it)
+- ❌ Queries without `company_id` on tenant models
+- ❌ Skip webhook signature verification
 - ❌ Store passwords in plaintext
-- ❌ Skip email verification for sensitive operations
-- ❌ Expose OAuth secrets in client code
+- ❌ Expose OAuth secrets client-side
+- ❌ Use `any` or `unknown` types
 
 **ALWAYS:**
+- ✅ Import from `lib/prisma.ts` singleton
 - ✅ Cents for money
 - ✅ Idempotency keys
-- ✅ HMAC signatures via Whop SDK webhook validator
-- ✅ Tenant isolation
+- ✅ HMAC webhook signatures
+- ✅ Tenant isolation via `runInTenantContext`
 - ✅ Zod validation
-- ✅ Use `request.headers.get('x-forwarded-for')` for IP detection
-- ✅ Verify Whop tokens with official SDK, never manually
-- ✅ Hash passwords with bcrypt (10+ rounds)
-- ✅ HTTP-only secure cookies for sessions
-- ✅ SameSite cookie protection
-- ✅ Server-side validation for all forms
-- ✅ Verify current password before changes
-- ✅ Check uniqueness for email/username
+- ✅ Hash passwords (bcrypt, 10+ rounds)
+- ✅ HTTP-only secure cookies
+- ✅ Server-side form validation
 
 ---
 
 ## Implementation Status
 
-### ✅ Phase 5: App Ecosystem & Security (COMPLETED)
-- [x] Whop SDK integration (`lib/whop-sdk/`)
-- [x] Security middleware with CSP headers (`middleware.ts`)
-- [x] Tailwind v4 design system (`app/globals.css`)
-- [x] B2C experience page with iframe auth
-- [x] B2B dashboard with stats & team management
-- [x] Products and settings pages
-- [x] License key validation endpoint
-- [x] Error boundary and 404 page
-- [x] Quality checks: **0 TypeScript errors, 0 ESLint errors**
+### ✅ Phase 5: App Ecosystem (COMPLETED)
+Whop SDK, `proxy.ts` (Next.js 16 middleware), design system, B2C/B2B dashboards, license validation
 
-### ✅ Phase 6: Authentication & UI (COMPLETED)
-- [x] **UI Design System**
-  - [x] Neon cyberpunk theme (primary: #00ff9d, accent: #ff006e)
-  - [x] Custom fonts (Sora + JetBrains Mono)
-  - [x] CSS animations (slideInUp, glow, float, pulse-glow)
-  - [x] Design guide (`.claude/skills/ui-design.md`)
+### ✅ Phase 6: Auth & UI (COMPLETED)
+Login/register, OAuth (Google/Apple), email verification, profile management, cyberpunk UI
 
-- [x] **Landing Page** (`app/page.tsx`)
-  - [x] Hero section with animated backgrounds
-  - [x] Features grid (6 cards)
-  - [x] Pricing tiers (3 plans)
-  - [x] CTA section
-  - [x] Footer with links
+### ✅ Phase 7: CRUD APIs (COMPLETED)
+Products, Companies, Memberships, Webhooks - Full CRUD with tenant isolation, RBAC, Zod validation
 
-- [x] **Authentication System**
-  - [x] Login/Register pages (shadcn login-03 block)
-  - [x] Server actions (`app/actions/auth.ts`)
-  - [x] Password hashing (bcrypt, 10 rounds)
-  - [x] JWT sessions (7-day expiry)
-  - [x] HTTP-only secure cookies
-  - [x] Protected route helper (`requireAuth`)
+### ✅ Phase 8: Prisma 7 Migration (COMPLETED)
+PostgreSQL adapter, driver pool, generated client at `prisma/generated/client`
 
-- [x] **OAuth Integration**
-  - [x] Google OAuth (fully activated)
-  - [x] Apple Sign In (placeholder structure)
-  - [x] Token exchange & user creation
-  - [x] Callback handlers
+### ✅ Phase 9: API Documentation & SDKs (COMPLETED)
+OpenAPI 3.0 spec, Swagger UI, TypeScript SDK, team sharing guides, SDK generation scripts
 
-- [x] **Email Verification**
-  - [x] Token generation (nanoid, 24h expiry)
-  - [x] Resend email service integration
-  - [x] Verification page (`/verify-email`)
-  - [x] Resend button on profile
-  - [x] Email verified badge
-  - [x] HTML email templates (cyberpunk theme)
-
-- [x] **Profile Management**
-  - [x] Profile page (`/profile`)
-  - [x] Update name/username
-  - [x] Change password (with current password check)
-  - [x] Email verification banner
-  - [x] Avatar with fallback
-
-- [x] **Navigation**
-  - [x] Dynamic site header (`components/site-header.tsx`)
-  - [x] Logout button with loading state
-  - [x] Auth-based menu items
-  - [x] Glassmorphism design
-
-- [x] **Dashboard**
-  - [x] Company selector (`/dashboard`)
-  - [x] Role badges (Owner/Admin/Member)
-  - [x] Company stats display
-  - [x] Auto-redirect for single company
-  - [x] Empty state with CTA
-
-### 🎯 Next: Deploy & Production Setup
-- [ ] Configure production environment variables
-- [ ] Set up Stripe Connect onboarding
-- [ ] Deploy to Vercel/production
-- [ ] Configure Redis for Bull queues
-- [ ] Set up monitoring & logging
-- [ ] Configure custom domain for Resend emails
-- [ ] Implement password reset flow
-- [ ] Add 2FA/MFA (optional)
-- [ ] Set up activity logging (optional)
+### 🎯 Next: Testing & Production Deploy
+Integration tests, E2E tests, Vercel deployment, monitoring, CI/CD
 
 ---
 
-## 🎨 Design System
+## Design System
 
 **Theme:** Neon Cyberpunk
-**Colors:**
-- Primary: `#00ff9d` (Electric Mint)
-- Accent: `#ff006e` (Hot Magenta)
-- Warning: `#f59e0b` (Amber)
-- Error: `#ef4444` (Red)
-- Background: `#0a0a0f` → `#12121a`
+**Colors:** Primary `#00ff9d`, Accent `#ff006e`, Background `#0a0a0f`
+**Fonts:** Sora (headings), JetBrains Mono (code)
+**Animations:** slideInUp, glow, float, pulse-glow
 
-**Typography:**
-- Headings: **Sora** (bold, distinctive)
-- Code/Labels: **JetBrains Mono**
-- Terminal-style labels (e.g., `EMAIL_ADDRESS`, `[BUTTON_TEXT]`)
-
-**Animations:**
-- `slideInUp` - Staggered fade-in from bottom
-- `glow` - Pulsing glow effect
-- `float` - Gentle floating motion
-- `pulse-glow` - Button hover glow
-
-**Components:**
-- Glassmorphism navigation
-- Animated gradient backgrounds
-- Grid patterns
-- Glowing borders on hover
-- Terminal-style UI elements
-- Cyberpunk button styles
-
-See `.claude/skills/ui-design.md` for complete guide.
+See `.claude/skills/ui-design.md` for full guide.
 
 ---
 
-**Full docs:** `Whop-saas-implementations-plan.md` | `.claude/skills.md` | `FEATURES.md`
+**More:** `Whop-saas-implementations-plan.md` | `.claude/skills.md` | `FEATURES.md`

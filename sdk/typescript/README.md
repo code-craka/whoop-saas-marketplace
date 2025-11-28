@@ -1,0 +1,169 @@
+# @whopsaas/sdk@1.0.0
+
+A TypeScript SDK client for the localhost API.
+
+## Usage
+
+First, install the SDK from npm.
+
+```bash
+npm install @whopsaas/sdk --save
+```
+
+Next, try it out.
+
+
+```ts
+import {
+  Configuration,
+  CompaniesApi,
+} from '@whopsaas/sdk';
+import type { ApiCompaniesGetRequest } from '@whopsaas/sdk';
+
+async function example() {
+  console.log("🚀 Testing @whopsaas/sdk SDK...");
+  const config = new Configuration({ 
+    // To configure API key authorization: cookieAuth
+    apiKey: "YOUR API KEY",
+  });
+  const api = new CompaniesApi(config);
+
+  const body = {
+    // 'owner' | 'admin' | 'member' (optional)
+    role: role_example,
+    // 'platform' | 'sub_merchant' (optional)
+    type: type_example,
+    // number (optional)
+    limit: 56,
+    // number (optional)
+    offset: 56,
+  } satisfies ApiCompaniesGetRequest;
+
+  try {
+    const data = await api.apiCompaniesGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+
+## Documentation
+
+### API Endpoints
+
+All URIs are relative to *http://localhost:3000*
+
+| Class | Method | HTTP request | Description
+| ----- | ------ | ------------ | -------------
+*CompaniesApi* | [**apiCompaniesGet**](docs/CompaniesApi.md#apicompaniesget) | **GET** /api/companies | List companies
+*CompaniesApi* | [**apiCompaniesIdGet**](docs/CompaniesApi.md#apicompaniesidget) | **GET** /api/companies/{id} | Get company
+*CompaniesApi* | [**apiCompaniesIdPut**](docs/CompaniesApi.md#apicompaniesidput) | **PUT** /api/companies/{id} | Update company
+*CompaniesApi* | [**apiCompaniesPost**](docs/CompaniesApi.md#apicompaniespost) | **POST** /api/companies | Create company
+*MembershipsApi* | [**apiMembershipsGet**](docs/MembershipsApi.md#apimembershipsget) | **GET** /api/memberships | List memberships
+*MembershipsApi* | [**apiMembershipsIdGet**](docs/MembershipsApi.md#apimembershipsidget) | **GET** /api/memberships/{id} | Get membership
+*MembershipsApi* | [**apiMembershipsIdPut**](docs/MembershipsApi.md#apimembershipsidput) | **PUT** /api/memberships/{id} | Update membership
+*ProductsApi* | [**apiProductsGet**](docs/ProductsApi.md#apiproductsget) | **GET** /api/products | List products
+*ProductsApi* | [**apiProductsIdDelete**](docs/ProductsApi.md#apiproductsiddelete) | **DELETE** /api/products/{id} | Delete product
+*ProductsApi* | [**apiProductsIdGet**](docs/ProductsApi.md#apiproductsidget) | **GET** /api/products/{id} | Get product
+*ProductsApi* | [**apiProductsIdPut**](docs/ProductsApi.md#apiproductsidput) | **PUT** /api/products/{id} | Update product
+*ProductsApi* | [**apiProductsPost**](docs/ProductsApi.md#apiproductspost) | **POST** /api/products | Create product
+*WebhooksApi* | [**apiWebhooksGet**](docs/WebhooksApi.md#apiwebhooksget) | **GET** /api/webhooks | List webhooks
+*WebhooksApi* | [**apiWebhooksIdDelete**](docs/WebhooksApi.md#apiwebhooksiddelete) | **DELETE** /api/webhooks/{id} | Delete webhook
+*WebhooksApi* | [**apiWebhooksIdGet**](docs/WebhooksApi.md#apiwebhooksidget) | **GET** /api/webhooks/{id} | Get webhook
+*WebhooksApi* | [**apiWebhooksIdPut**](docs/WebhooksApi.md#apiwebhooksidput) | **PUT** /api/webhooks/{id} | Update webhook
+*WebhooksApi* | [**apiWebhooksPost**](docs/WebhooksApi.md#apiwebhookspost) | **POST** /api/webhooks | Create webhook
+
+
+### Models
+
+- [ApiCompaniesGet200Response](docs/ApiCompaniesGet200Response.md)
+- [ApiCompaniesGet200ResponseCompaniesInner](docs/ApiCompaniesGet200ResponseCompaniesInner.md)
+- [ApiCompaniesIdGet200Response](docs/ApiCompaniesIdGet200Response.md)
+- [ApiMembershipsGet200Response](docs/ApiMembershipsGet200Response.md)
+- [ApiProductsGet200Response](docs/ApiProductsGet200Response.md)
+- [ApiProductsIdDelete200Response](docs/ApiProductsIdDelete200Response.md)
+- [ApiWebhooksGet200Response](docs/ApiWebhooksGet200Response.md)
+- [ApiWebhooksIdDelete200Response](docs/ApiWebhooksIdDelete200Response.md)
+- [ApiWebhooksPost201Response](docs/ApiWebhooksPost201Response.md)
+- [Company](docs/Company.md)
+- [CompanyCount](docs/CompanyCount.md)
+- [CompanyCreate](docs/CompanyCreate.md)
+- [CompanyUpdate](docs/CompanyUpdate.md)
+- [Membership](docs/Membership.md)
+- [MembershipUpdate](docs/MembershipUpdate.md)
+- [MembershipUser](docs/MembershipUser.md)
+- [ModelError](docs/ModelError.md)
+- [Pagination](docs/Pagination.md)
+- [Product](docs/Product.md)
+- [ProductCreate](docs/ProductCreate.md)
+- [ProductUpdate](docs/ProductUpdate.md)
+- [Webhook](docs/Webhook.md)
+- [WebhookCount](docs/WebhookCount.md)
+- [WebhookCreate](docs/WebhookCreate.md)
+- [WebhookUpdate](docs/WebhookUpdate.md)
+
+### Authorization
+
+
+Authentication schemes defined for the API:
+<a id="cookieAuth"></a>
+#### cookieAuth
+
+
+- **Type**: API key
+- **API key parameter name**: `session_token`
+- **Location**: 
+
+## About
+
+This TypeScript SDK client supports the [Fetch API](https://fetch.spec.whatwg.org/)
+and is automatically generated by the
+[OpenAPI Generator](https://openapi-generator.tech) project:
+
+- API version: `1.0.0`
+- Package version: `1.0.0`
+- Generator version: `7.17.0`
+- Build package: `org.openapitools.codegen.languages.TypeScriptFetchClientCodegen`
+
+The generated npm module supports the following:
+
+- Environments
+  * Node.js
+  * Webpack
+  * Browserify
+- Language levels
+  * ES5 - you must have a Promises/A+ library installed
+  * ES6
+- Module systems
+  * CommonJS
+  * ES6 module system
+
+
+## Development
+
+### Building
+
+To build the TypeScript source code, you need to have Node.js and npm installed.
+After cloning the repository, navigate to the project directory and run:
+
+```bash
+npm install
+npm run build
+```
+
+### Publishing
+
+Once you've built the package, you can publish it to npm:
+
+```bash
+npm publish
+```
+
+## License
+
+[MIT](https://opensource.org/licenses/MIT)

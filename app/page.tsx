@@ -14,21 +14,11 @@ export default async function Home() {
         {/* Animated Background */}
         <div className="absolute inset-0">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500 rounded-full blur-[120px] opacity-20 animate-pulse" />
-          <div
-            className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-500 rounded-full blur-[120px] opacity-20 animate-pulse"
-            style={{ animationDelay: '1s' }}
-          />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-500 rounded-full blur-[120px] opacity-20 animate-pulse [animation-delay:1s]" />
         </div>
 
         {/* Grid Pattern */}
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: `linear-gradient(to right, #00ff9d 1px, transparent 1px),
-                             linear-gradient(to bottom, #00ff9d 1px, transparent 1px)`,
-            backgroundSize: '40px 40px',
-          }}
-        />
+        <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#00ff9d_1px,transparent_1px),linear-gradient(to_bottom,#00ff9d_1px,transparent_1px)] bg-[length:40px_40px]" />
 
         <div className="relative z-10 max-w-7xl mx-auto">
           <div className="max-w-4xl mx-auto text-center">
@@ -47,7 +37,7 @@ export default async function Home() {
             <h1 className="text-6xl md:text-8xl font-black mb-6 stagger-2">
               DIGITAL
               <br />
-              <span className="text-primary-500" style={{ textShadow: '0 0 40px rgba(0, 255, 157, 0.5)' }}>
+              <span className="text-primary-500 [text-shadow:0_0_40px_rgba(0,255,157,0.5)]">
                 MARKETPLACE
               </span>
             </h1>

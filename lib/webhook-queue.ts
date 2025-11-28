@@ -1,38 +1,20 @@
 /**
- * Webhook Queue System with Bull & Redis
+ * Webhook Delivery System (Next.js 16 Compatible)
  *
- * Asynchronous webhook delivery with:
+ * Synchronous webhook delivery with:
  * - Exponential backoff retry (5s → 25s → 125s)
  * - Idempotency via event_id deduplication
  * - Signature generation (HMAC-SHA256)
- * - Persistent job queue
+ * - Database-backed delivery tracking
+ *
+ * Note: Replaced Bull queue with synchronous delivery for Next.js 16 + Turbopack compatibility
+ * For production scale, consider: Inngest, Trigger.dev, Upstash QStash, or Vercel Cron
  *
  * @see CLAUDE.md for webhook patterns
  */
 
-import Bull from 'bull';
 import crypto from 'crypto';
-import { z } from 'zod';
-import prisma from './prisma';
-import { Prisma } from '@prisma/client';
-
-// ============================================================================
-// ENVIRONMENT VALIDATION
-// ============================================================================
-
-const redisConfigSchema = z.object({
-  REDIS_URL: z.string().url('Invalid REDIS_URL'),
-  REDIS_HOST: z.string().optional(),
-  REDIS_PORT: z.string().optional(),
-  REDIS_PASSWORD: z.string().optional(),
-});
-
-const redisEnv = redisConfigSchema.parse({
-  REDIS_URL: process.env.REDIS_URL,
-  REDIS_HOST: process.env.REDIS_HOST,
-  REDIS_PORT: process.env.REDIS_PORT,
-  REDIS_PASSWORD: process.env.REDIS_PASSWORD,
-});
+import prisma, { type Prisma } from './prisma';
 
 // ============================================================================
 // WEBHOOK JOB DATA
@@ -48,30 +30,6 @@ export interface WebhookJobData {
   secret: string;
   attempt: number;
 }
-
-// ============================================================================
-// WEBHOOK QUEUE
-// ============================================================================
-
-/**
- * Bull queue for webhook delivery
- *
- * Configuration:
- * - Exponential backoff: 5s, 25s, 125s
- * - Max 3 attempts
- * - Persistent jobs (survives server restart)
- */
-export const webhookQueue = new Bull<WebhookJobData>('webhooks', redisEnv.REDIS_URL, {
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 5000, // 5s → 25s → 125s
-    },
-    removeOnComplete: true, // Remove after 24h
-    removeOnFail: false, // Keep failed jobs for debugging
-  },
-});
 
 // ============================================================================
 // WEBHOOK SIGNATURE
@@ -117,6 +75,114 @@ export function verifyWebhookSignature(
 }
 
 // ============================================================================
+// WEBHOOK DELIVERY
+// ============================================================================
+
+/**
+ * Deliver webhook to endpoint with retry logic
+ *
+ * @param job - Webhook job data
+ * @param maxAttempts - Maximum retry attempts (default: 3)
+ */
+async function deliverWebhook(
+  job: WebhookJobData,
+  maxAttempts: number = 3
+): Promise<{ success: boolean; statusCode?: number; error?: string }> {
+  const payload = JSON.stringify({
+    event_id: job.eventId,
+    event_type: job.eventType,
+    data: job.eventData,
+    timestamp: new Date().toISOString(),
+  });
+
+  const signature = generateWebhookSignature(payload, job.secret);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await fetch(job.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Signature': signature,
+          'X-Webhook-Event': job.eventType,
+          'X-Webhook-Event-ID': job.eventId,
+          'User-Agent': 'Whop-Webhook/1.0',
+        },
+        body: payload,
+        signal: AbortSignal.timeout(30000), // 30s timeout
+      });
+
+      // Update delivery record
+      await prisma.webhookDelivery.update({
+        where: { id: job.deliveryId },
+        data: {
+          status: response.ok ? 'delivered' : 'failed',
+          response_status: response.status,
+          response_body: await response.text().catch(() => null),
+          attempts: attempt,
+          delivered_at: response.ok ? new Date() : null,
+        },
+      });
+
+      if (response.ok) {
+        console.log(
+          `[Webhook] Delivered ${job.eventType} to ${job.url} (attempt ${attempt})`
+        );
+        return { success: true, statusCode: response.status };
+      }
+
+      // Non-2xx response - log and potentially retry
+      console.warn(
+        `[Webhook] Failed ${job.eventType} to ${job.url}: ${response.status} (attempt ${attempt}/${maxAttempts})`
+      );
+
+      // Don't retry 4xx errors (client errors)
+      if (response.status >= 400 && response.status < 500) {
+        return {
+          success: false,
+          statusCode: response.status,
+          error: `Client error: ${response.status}`,
+        };
+      }
+
+      // Exponential backoff for retries (5s, 25s, 125s)
+      if (attempt < maxAttempts) {
+        const delay = Math.pow(5, attempt) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    } catch (error) {
+      console.error(
+        `[Webhook] Error delivering ${job.eventType} to ${job.url}:`,
+        error
+      );
+
+      // Update delivery record on error
+      await prisma.webhookDelivery.update({
+        where: { id: job.deliveryId },
+        data: {
+          status: 'failed',
+          attempts: attempt,
+          response_body: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      // Retry on network/timeout errors
+      if (attempt < maxAttempts) {
+        const delay = Math.pow(5, attempt) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  }
+
+  return { success: false, error: 'Max attempts reached' };
+}
+
+// ============================================================================
 // QUEUE WEBHOOK DELIVERY
 // ============================================================================
 
@@ -133,6 +199,12 @@ export interface QueueWebhookOptions {
  * IDEMPOTENCY:
  * - Uses event_id for deduplication
  * - Prevents duplicate webhook deliveries
+ *
+ * Note: Now delivers synchronously. For async processing at scale, migrate to:
+ * - Inngest (recommended for serverless)
+ * - Trigger.dev (workflow automation)
+ * - Upstash QStash (HTTP-based queue)
+ * - Vercel Cron + database queue
  *
  * @param options - Webhook event options
  */
@@ -162,19 +234,26 @@ export async function queueWebhookDelivery(
     return;
   }
 
-  // Create delivery records and queue jobs
-  for (const webhook of webhooks) {
+  // Create delivery records and deliver webhooks
+  const deliveryPromises = webhooks.map(async (webhook: {
+    id: string;
+    url: string;
+    secret: string;
+  }) => {
     try {
       // Check for duplicate event_id (idempotency)
-      const existingDelivery = await prisma.webhookDelivery.findUnique({
-        where: { event_id: eventId },
+      const existingDelivery = await prisma.webhookDelivery.findFirst({
+        where: {
+          webhook_id: webhook.id,
+          event_id: eventId,
+        },
       });
 
       if (existingDelivery) {
         console.log(
           `[Webhook Queue] Skipping duplicate event: ${eventId} for webhook ${webhook.id}`
         );
-        continue;
+        return;
       }
 
       // Create delivery record
@@ -189,8 +268,8 @@ export async function queueWebhookDelivery(
         },
       });
 
-      // Queue job for async delivery
-      await webhookQueue.add({
+      // Deliver webhook immediately (async in background)
+      const job: WebhookJobData = {
         webhookId: webhook.id,
         deliveryId: delivery.id,
         eventId,
@@ -199,10 +278,18 @@ export async function queueWebhookDelivery(
         url: webhook.url,
         secret: webhook.secret,
         attempt: 0,
+      };
+
+      // Deliver in background (don't await to avoid blocking)
+      deliverWebhook(job).catch((error) => {
+        console.error(
+          `[Webhook Queue] Background delivery failed for webhook ${webhook.id}:`,
+          error
+        );
       });
 
       console.log(
-        `[Webhook Queue] Queued ${eventType} for webhook ${webhook.id}`
+        `[Webhook Queue] Triggered ${eventType} for webhook ${webhook.id}`
       );
     } catch (error) {
       console.error(
@@ -210,7 +297,10 @@ export async function queueWebhookDelivery(
         error
       );
     }
-  }
+  });
+
+  // Wait for all delivery records to be created (but not actual delivery)
+  await Promise.allSettled(deliveryPromises);
 }
 
 // ============================================================================
@@ -269,37 +359,17 @@ export async function triggerWebhook(
 }
 
 // ============================================================================
-// QUEUE EVENT HANDLERS
-// ============================================================================
-
-// Log queue events
-webhookQueue.on('completed', (job) => {
-  console.log(`[Webhook Queue] Job ${job.id} completed`);
-});
-
-webhookQueue.on('failed', (job, err) => {
-  console.error(`[Webhook Queue] Job ${job?.id} failed:`, err);
-});
-
-webhookQueue.on('stalled', (job) => {
-  console.warn(`[Webhook Queue] Job ${job.id} stalled`);
-});
-
-// ============================================================================
-// GRACEFUL SHUTDOWN
+// BACKWARDS COMPATIBILITY (for worker processes)
 // ============================================================================
 
 /**
  * Gracefully close webhook queue
- * Call this on server shutdown
+ * (No-op for compatibility - was used with Bull)
  */
 export async function closeWebhookQueue(): Promise<void> {
-  await webhookQueue.close();
-  console.log('[Webhook Queue] Closed');
+  console.log('[Webhook Queue] No queue to close (using sync delivery)');
 }
 
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
-export default webhookQueue;
+// Legacy export for compatibility
+export const webhookQueue = null;
+export default null;

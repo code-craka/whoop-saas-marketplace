@@ -1,0 +1,1050 @@
+openapi: 3.0.3
+info:
+  title: Whop SaaS Marketplace API
+  description: |
+    Production-grade marketplace API enabling multi-tenant SaaS, Stripe Connect payments,
+    license management, and webhook event broadcasting.
+
+    ## Authentication
+    All endpoints require authentication via session token cookie (`session_token`).
+
+    ## Multi-Tenancy
+    All resources are scoped to companies. Users can access multiple companies with different roles.
+
+    ## Rate Limiting
+    - 100 requests per minute per IP
+    - Returns `429 Too Many Requests` when exceeded
+
+    ## Security
+    - Tenant isolation via `company_id` filtering
+    - Role-based access control (owner/admin/member)
+    - Money stored in minor units (cents) to avoid floating-point errors
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: api@whopsaas.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.whopsaas.com
+    description: Production server
+
+tags:
+  - name: Products
+    description: Product management (plans, pricing, subscriptions)
+  - name: Companies
+    description: Company management (sub-merchants, tenants)
+  - name: Memberships
+    description: User subscriptions and access management
+  - name: Webhooks
+    description: Webhook subscriptions for event notifications
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session_token
+      description: JWT session token (HTTP-only cookie)
+
+  schemas:
+    # ========================================================================
+    # Product Schemas
+    # ========================================================================
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          example: prod_abc123
+        company_id:
+          type: string
+          example: biz_xyz789
+        title:
+          type: string
+          example: Pro Plan
+        description:
+          type: string
+          nullable: true
+          example: Premium features with priority support
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+        price_amount:
+          type: number
+          format: decimal
+          example: 49.99
+        price_minor_units:
+          type: integer
+          example: 4999
+          description: Price in cents (avoid floating-point errors)
+        currency:
+          type: string
+          example: USD
+        plan_type:
+          type: string
+          enum: [one_time, monthly, yearly]
+        billing_period:
+          type: integer
+          nullable: true
+          description: Billing period in days (30, 365, etc.)
+        trial_days:
+          type: integer
+          example: 14
+        active:
+          type: boolean
+        metadata:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - company_id
+        - title
+        - price_amount
+        - price_minor_units
+        - currency
+        - plan_type
+
+    ProductCreate:
+      type: object
+      properties:
+        company_id:
+          type: string
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        image_url:
+          type: string
+          format: uri
+        price_amount:
+          type: number
+          description: Price in dollars (e.g., 49.99)
+        price_minor_units:
+          type: integer
+          description: Price in cents (e.g., 4999) - provide EITHER this OR price_amount
+        currency:
+          type: string
+          default: USD
+        plan_type:
+          type: string
+          enum: [one_time, monthly, yearly]
+        billing_period:
+          type: integer
+        trial_days:
+          type: integer
+          default: 0
+        active:
+          type: boolean
+          default: true
+        metadata:
+          type: object
+      required:
+        - company_id
+        - title
+        - plan_type
+
+    ProductUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+        price_amount:
+          type: number
+        price_minor_units:
+          type: integer
+        currency:
+          type: string
+        plan_type:
+          type: string
+          enum: [one_time, monthly, yearly]
+        billing_period:
+          type: integer
+          nullable: true
+        trial_days:
+          type: integer
+        active:
+          type: boolean
+        metadata:
+          type: object
+          nullable: true
+
+    # ========================================================================
+    # Company Schemas
+    # ========================================================================
+    Company:
+      type: object
+      properties:
+        id:
+          type: string
+          example: biz_abc123
+        type:
+          type: string
+          enum: [platform, sub_merchant]
+        status:
+          type: string
+          enum: [active, pending_kyc, suspended, closed]
+        title:
+          type: string
+        email:
+          type: string
+          format: email
+        slug:
+          type: string
+          example: my-saas-company
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+        website_url:
+          type: string
+          format: uri
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        platform_fee_percent:
+          type: number
+          format: decimal
+          example: 5.0
+        payout_minimum_amount:
+          type: number
+          format: decimal
+          example: 50.0
+        payout_frequency:
+          type: string
+          enum: [daily, weekly, monthly]
+        stripe_account_id:
+          type: string
+          nullable: true
+        stripe_onboarded:
+          type: boolean
+        metadata:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        _count:
+          type: object
+          properties:
+            products:
+              type: integer
+            memberships:
+              type: integer
+            payments:
+              type: integer
+            users:
+              type: integer
+
+    CompanyCreate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        type:
+          type: string
+          enum: [platform, sub_merchant]
+          default: sub_merchant
+        logo_url:
+          type: string
+          format: uri
+        website_url:
+          type: string
+          format: uri
+        description:
+          type: string
+        platform_fee_percent:
+          type: number
+          default: 5.0
+        payout_minimum_amount:
+          type: number
+          default: 50.0
+        payout_frequency:
+          type: string
+          enum: [daily, weekly, monthly]
+          default: weekly
+        metadata:
+          type: object
+      required:
+        - title
+        - email
+
+    CompanyUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        email:
+          type: string
+          format: email
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+        website_url:
+          type: string
+          format: uri
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        platform_fee_percent:
+          type: number
+        payout_minimum_amount:
+          type: number
+        payout_frequency:
+          type: string
+          enum: [daily, weekly, monthly]
+        status:
+          type: string
+          enum: [active, pending_kyc, suspended, closed]
+          description: Only owners can change status
+        metadata:
+          type: object
+          nullable: true
+
+    # ========================================================================
+    # Membership Schemas
+    # ========================================================================
+    Membership:
+      type: object
+      properties:
+        id:
+          type: string
+          example: mem_abc123
+        user_id:
+          type: string
+        product_id:
+          type: string
+        company_id:
+          type: string
+        status:
+          type: string
+          enum: [active, past_due, canceled, expired, trialing]
+        stripe_subscription_id:
+          type: string
+          nullable: true
+        current_period_start:
+          type: string
+          format: date-time
+          nullable: true
+        current_period_end:
+          type: string
+          format: date-time
+          nullable: true
+        cancel_at:
+          type: string
+          format: date-time
+          nullable: true
+        canceled_at:
+          type: string
+          format: date-time
+          nullable: true
+        trial_end:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            name:
+              type: string
+            avatar_url:
+              type: string
+        product:
+          $ref: '#/components/schemas/Product'
+        company:
+          $ref: '#/components/schemas/Company'
+
+    MembershipUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, past_due, canceled, expired, trialing]
+          description: Only company admins can change status
+        cancel_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Schedule cancellation (members can cancel own)
+        metadata:
+          type: object
+          nullable: true
+          description: Only company admins can update metadata
+
+    # ========================================================================
+    # Webhook Schemas
+    # ========================================================================
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: string
+          example: whk_abc123
+        company_id:
+          type: string
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+            enum:
+              - payment.succeeded
+              - payment.failed
+              - membership.created
+              - membership.updated
+              - membership.canceled
+              - product.created
+              - product.updated
+              - product.deleted
+        api_version:
+          type: string
+          default: v1
+        secret:
+          type: string
+          description: HMAC secret (masked after creation)
+          example: whsec_abc123...
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        _count:
+          type: object
+          properties:
+            deliveries:
+              type: integer
+
+    WebhookCreate:
+      type: object
+      properties:
+        company_id:
+          type: string
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        api_version:
+          type: string
+          default: v1
+        active:
+          type: boolean
+          default: true
+      required:
+        - company_id
+        - url
+        - events
+
+    WebhookUpdate:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        api_version:
+          type: string
+        active:
+          type: boolean
+
+    # ========================================================================
+    # Common Schemas
+    # ========================================================================
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_more:
+          type: boolean
+
+security:
+  - cookieAuth: []
+
+paths:
+  # ==========================================================================
+  # PRODUCTS
+  # ==========================================================================
+  /api/products:
+    get:
+      tags:
+        - Products
+      summary: List products
+      description: List all products for a company with pagination
+      parameters:
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: active
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Bad request (missing company_id)
+        '403':
+          description: Forbidden (no access to company)
+
+    post:
+      tags:
+        - Products
+      summary: Create product
+      description: Create a new product (requires admin/owner role)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreate'
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden (insufficient permissions)
+
+  /api/products/{id}:
+    get:
+      tags:
+        - Products
+      summary: Get product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+
+    put:
+      tags:
+        - Products
+      summary: Update product
+      description: Update product (requires admin/owner role)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdate'
+      responses:
+        '200':
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden
+
+    delete:
+      tags:
+        - Products
+      summary: Delete product
+      description: Soft delete (sets active=false). Only owners can delete. Prevents deletion if active memberships exist.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  product:
+                    $ref: '#/components/schemas/Product'
+        '400':
+          description: Cannot delete (active memberships exist)
+        '403':
+          description: Forbidden (only owners can delete)
+
+  # ==========================================================================
+  # COMPANIES
+  # ==========================================================================
+  /api/companies:
+    get:
+      tags:
+        - Companies
+      summary: List companies
+      description: List all companies user has access to
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [owner, admin, member]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [platform, sub_merchant]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  companies:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/Company'
+                        - type: object
+                          properties:
+                            user_role:
+                              type: string
+                              enum: [owner, admin, member]
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - Companies
+      summary: Create company
+      description: Create a new company (user becomes owner)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyCreate'
+      responses:
+        '201':
+          description: Company created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
+        '409':
+          description: Conflict (email already exists)
+
+  /api/companies/{id}:
+    get:
+      tags:
+        - Companies
+      summary: Get company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Company'
+                  - type: object
+                    properties:
+                      user_role:
+                        type: string
+        '404':
+          description: Company not found
+
+    put:
+      tags:
+        - Companies
+      summary: Update company
+      description: Update company (requires admin/owner role)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyUpdate'
+      responses:
+        '200':
+          description: Company updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
+        '403':
+          description: Forbidden
+        '409':
+          description: Conflict (email already exists)
+
+  # ==========================================================================
+  # MEMBERSHIPS
+  # ==========================================================================
+  /api/memberships:
+    get:
+      tags:
+        - Memberships
+      summary: List memberships
+      description: List memberships (scoped by company_id or user)
+      parameters:
+        - name: company_id
+          in: query
+          schema:
+            type: string
+          description: Filter by company (requires admin access)
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: product_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, past_due, canceled, expired, trialing]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  memberships:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Membership'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '403':
+          description: Forbidden
+
+  /api/memberships/{id}:
+    get:
+      tags:
+        - Memberships
+      summary: Get membership
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Membership'
+        '404':
+          description: Membership not found
+
+    put:
+      tags:
+        - Memberships
+      summary: Update membership
+      description: Update membership status or metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipUpdate'
+      responses:
+        '200':
+          description: Membership updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Membership'
+        '403':
+          description: Forbidden
+
+  # ==========================================================================
+  # WEBHOOKS
+  # ==========================================================================
+  /api/webhooks:
+    get:
+      tags:
+        - Webhooks
+      summary: List webhooks
+      description: List webhook subscriptions (admins only)
+      parameters:
+        - name: company_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: active
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhooks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Webhook'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '403':
+          description: Forbidden (admins only)
+
+    post:
+      tags:
+        - Webhooks
+      summary: Create webhook
+      description: Create webhook subscription (admins only). Returns full secret only on creation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+      responses:
+        '201':
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Webhook'
+                  - type: object
+                    properties:
+                      secret:
+                        type: string
+                        description: Full HMAC secret (save securely, won't be shown again)
+                      warning:
+                        type: string
+        '403':
+          description: Forbidden
+
+  /api/webhooks/{id}:
+    get:
+      tags:
+        - Webhooks
+      summary: Get webhook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+
+    put:
+      tags:
+        - Webhooks
+      summary: Update webhook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookUpdate'
+      responses:
+        '200':
+          description: Webhook updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+
+    delete:
+      tags:
+        - Webhooks
+      summary: Delete webhook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Webhook deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  id:
+                    type: string

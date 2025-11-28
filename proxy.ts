@@ -1,5 +1,5 @@
 /**
- * Next.js Security Middleware
+ * Next.js Security Proxy (formerly Middleware)
  *
  * Implements:
  * - CSP headers for iframe security
@@ -70,14 +70,14 @@ if (typeof window === 'undefined') {
 }
 
 // ============================================================================
-// MIDDLEWARE
+// PROXY (formerly MIDDLEWARE)
 // ============================================================================
 
 /**
- * Next.js Middleware
+ * Next.js Proxy
  * Runs on every request before route handlers
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
   const path = request.nextUrl.pathname;
 
@@ -176,7 +176,7 @@ export async function middleware(request: NextRequest) {
     try {
       await verifySessionToken(sessionToken);
     } catch (error) {
-      console.error('[Middleware] Session verification failed:', error);
+      console.error('[Proxy] Session verification failed:', error);
 
       // Invalid token - clear cookie and redirect/return 401
       const response = path.startsWith('/api')
@@ -229,11 +229,11 @@ export async function middleware(request: NextRequest) {
 }
 
 // ============================================================================
-// MIDDLEWARE CONFIGURATION
+// PROXY CONFIGURATION
 // ============================================================================
 
 /**
- * Configure which routes the middleware runs on
+ * Configure which routes the proxy runs on
  */
 export const config = {
   matcher: [

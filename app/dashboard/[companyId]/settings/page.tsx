@@ -55,39 +55,51 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
 
           <form className="space-y-4">
             <div>
-              <label className="label">Company Name</label>
+              <label htmlFor="company-name" className="label">Company Name</label>
               <input
+                id="company-name"
+                name="title"
                 type="text"
                 className="input"
                 defaultValue={company.title}
+                aria-label="Company Name"
               />
             </div>
 
             <div>
-              <label className="label">Email</label>
+              <label htmlFor="company-email" className="label">Email</label>
               <input
+                id="company-email"
+                name="email"
                 type="email"
                 className="input"
                 defaultValue={company.email}
+                aria-label="Company Email"
               />
             </div>
 
             <div>
-              <label className="label">Website URL</label>
+              <label htmlFor="company-website" className="label">Website URL</label>
               <input
+                id="company-website"
+                name="website_url"
                 type="url"
                 className="input"
                 defaultValue={company.website_url || ''}
                 placeholder="https://example.com"
+                aria-label="Company Website URL"
               />
             </div>
 
             <div>
-              <label className="label">Description</label>
+              <label htmlFor="company-description" className="label">Description</label>
               <textarea
+                id="company-description"
+                name="description"
                 className="input"
                 rows={4}
                 defaultValue={company.description || ''}
+                aria-label="Company Description"
               />
             </div>
 
@@ -144,7 +156,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         <div className="card">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">Webhooks</h2>
-            <button className="btn btn-primary btn-sm">+ Add Webhook</button>
+            <button type="button" className="btn btn-primary btn-sm">+ Add Webhook</button>
           </div>
 
           {company.webhooks.length === 0 ? (
@@ -153,7 +165,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             </p>
           ) : (
             <div className="space-y-3">
-              {company.webhooks.map((webhook) => (
+              {company.webhooks.map((webhook: { id: string; url: string; events: string[] }) => (
                 <div
                   key={webhook.id}
                   className="p-4 border border-gray-200 rounded-lg"
@@ -165,7 +177,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
                     <span className="badge badge-success">Active</span>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    {webhook.events.map((event) => (
+                    {webhook.events.map((event: string) => (
                       <span key={event} className="badge badge-gray text-xs">
                         {event}
                       </span>
@@ -183,7 +195,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             <h2 className="text-xl font-semibold text-error-600 mb-6">
               Danger Zone
             </h2>
-            <button className="btn btn-danger">Delete Company</button>
+            <button type="button" className="btn btn-danger">Delete Company</button>
           </div>
         )}
       </div>

@@ -7,7 +7,9 @@
  * @see CLAUDE.md for tenant isolation patterns
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma as PrismaNamespace } from '../prisma/generated/client/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 import { AsyncLocalStorage } from 'async_hooks';
 
 // ============================================================================
@@ -87,9 +89,16 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// Initialize PostgreSQL connection pool for Prisma 7 adapter
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+
+// Initialize PostgreSQL adapter for Prisma 7
+const adapter = new PrismaPg(pool);
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
+    adapter,
     log:
       process.env.NODE_ENV === 'development'
         ? ['query', 'error', 'warn']
@@ -244,5 +253,8 @@ export function withoutTenantIsolation<T>(fn: () => Promise<T>): Promise<T> {
 export function getSystemPrisma(): PrismaClient {
   return prisma;
 }
+
+// Export Prisma namespace for type usage
+export { PrismaNamespace as Prisma };
 
 export default prisma;

@@ -67,11 +67,12 @@ export function SiteHeader({ user }: SiteHeaderProps) {
                   Profile
                 </Link>
                 <button
+                  type="button"
                   onClick={handleLogout}
                   disabled={isLoggingOut}
                   aria-label="Logout from account"
-                  aria-busy={isLoggingOut ? 'true' : 'false'}
-                  className="px-4 py-2 text-sm border border-primary-500/30 text-primary-500 hover:bg-primary-500/10 transition-colors disabled:opacity-50"
+                  {...(isLoggingOut && { 'aria-busy': 'true' as const })}
+                  className="px-4 py-2 text-sm border border-primary-500/30 text-primary-500 hover:bg-primary-500/10 transition-colors disabled:opacity-50 aria-busy:opacity-75"
                 >
                   {isLoggingOut ? 'Logging out...' : 'Logout'}
                 </button>
@@ -96,10 +97,11 @@ export function SiteHeader({ user }: SiteHeaderProps) {
 
           {/* Mobile Menu Button */}
           <button
+            type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label="Toggle mobile menu"
-            aria-expanded={isMobileMenuOpen}
-            className="md:hidden text-gray-400 hover:text-primary-500 transition-colors"
+            {...(isMobileMenuOpen && { 'aria-expanded': 'true' as const })}
+            className="md:hidden text-gray-400 hover:text-primary-500 transition-colors aria-expanded:text-primary-500"
           >
             {isMobileMenuOpen ? (
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,11 +159,12 @@ export function SiteHeader({ user }: SiteHeaderProps) {
                   [PROFILE]
                 </Link>
                 <button
+                  type="button"
                   onClick={handleLogout}
                   disabled={isLoggingOut}
                   aria-label="Logout from account"
-                  aria-busy={isLoggingOut ? 'true' : 'false'}
-                  className="mt-4 px-8 py-3 border border-primary-500/30 text-primary-500 hover:bg-primary-500/10 transition-colors disabled:opacity-50 text-lg font-mono"
+                  {...(isLoggingOut && { 'aria-busy': 'true' as const })}
+                  className="mt-4 px-8 py-3 border border-primary-500/30 text-primary-500 hover:bg-primary-500/10 transition-colors disabled:opacity-50 text-lg font-mono aria-busy:opacity-75"
                 >
                   {isLoggingOut ? 'LOGGING_OUT...' : '[LOGOUT]'}
                 </button>

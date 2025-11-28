@@ -6,8 +6,7 @@
 
 import { Resend } from 'resend';
 import { nanoid } from 'nanoid';
-import { Prisma } from '@prisma/client';
-import { prisma } from './prisma';
+import { prisma, Prisma } from './prisma';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const resend = new Resend(process.env.RESEND_API_KEY!);

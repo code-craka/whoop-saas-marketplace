@@ -9,8 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/prisma';
-import type { Prisma } from '@prisma/client';
+import { prisma, type Prisma } from '@/lib/prisma';
 
 const bodySchema = z.object({
   hardware_id: z.string().min(1),

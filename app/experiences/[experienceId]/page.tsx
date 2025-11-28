@@ -9,8 +9,7 @@
 
 import { verifyWhopToken } from '@/lib/whop-sdk';
 import { authenticateWhopIframe } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import type { Prisma } from '@prisma/client';
+import { prisma, type Prisma } from '@/lib/prisma';
 
 interface ExperiencePageProps {
   params: Promise<{ experienceId: string }>;

@@ -19,9 +19,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { Prisma } from '@prisma/client';
 import { verifyStripeWebhook } from '@/lib/stripe';
-import prisma, { runInTenantContext } from '@/lib/prisma';
+import prisma, { runInTenantContext, Prisma } from '@/lib/prisma';
 import { triggerWebhook, WebhookEvents } from '@/lib/webhook-queue';
 
 // ============================================================================
